@@ -8,6 +8,6 @@ find_package(Boost COMPONENTS system program_options REQUIRED)
 
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
-  add_executable(${executable_name} main.cpp)
+  add_executable(${executable_name} main.cpp worker.cpp)
   target_link_libraries(${executable_name} ${Boost_LIBRARIES})
 endif()
