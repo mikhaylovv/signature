@@ -54,23 +54,25 @@ int main ( int argc, char * argv[] )
     const unsigned int max_threads_num = std::thread::hardware_concurrency();
     const size_t blocks_per_thread = static_cast<size_t>( ceil( ceil( static_cast<double>( file_size ) / block_size ) / max_threads_num ) );
 
+
     std::vector<std::future<std::vector<size_t> > > promises ( max_threads_num );
 
     // run hash calculations
     for ( size_t i = 0; i < max_threads_num; ++i ) {
       promises[i] = std::async( 
             std::launch::async
-            , []( const std::string file_name, std::streamoff off, std::streamsize size ) {
+            , []( const std::string file_name, std::streamoff off, std::streamsize read_size, size_t block_size ) {
                 std::ifstream stream ( file_name, std::ios_base::in | std::ios_base::binary );
                 stream.seekg( off );
 
-                std::string row_data ( static_cast<size_t>( size ), 0 );
-                stream.read( &row_data[0], size );
-                return process_file_slice( row_data, static_cast<size_t>( size ) );
+                std::string row_data ( static_cast<size_t>( read_size ), 0 );
+                stream.read( &row_data[0], read_size );
+                return process_file_slice( row_data, static_cast<size_t>( block_size ) );
               }
             , input_file
             , static_cast<std::streamoff>( blocks_per_thread * block_size * i )  
-            , static_cast<std::streamsize>( block_size ) );
+            , static_cast<std::streamsize>( blocks_per_thread * block_size * ( i + 1 ) )
+            , block_size );
     }
 
     // Collect results
