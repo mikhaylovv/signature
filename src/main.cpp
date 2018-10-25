@@ -59,19 +59,14 @@ int main ( int argc, char * argv[] )
 
     // run hash calculations
     for ( size_t i = 0; i < max_threads_num; ++i ) {
+      main_fstream.seekg( static_cast<std::streamoff>( blocks_per_thread * block_size * i ) );
+      const size_t read_size = blocks_per_thread * block_size * ( i + 1 );
+      std::string row_data ( read_size , 0 );
+      main_fstream.read( &row_data[0], static_cast<std::streamsize>( read_size ) );
       promises[i] = std::async( 
             std::launch::async
-            , []( const std::string file_name, std::streamoff off, std::streamsize read_size, size_t block_size ) {
-                std::ifstream stream ( file_name, std::ios_base::in | std::ios_base::binary );
-                stream.seekg( off );
-
-                std::string row_data ( static_cast<size_t>( read_size ), 0 );
-                stream.read( &row_data[0], read_size );
-                return process_file_slice( row_data, static_cast<size_t>( block_size ) );
-              }
-            , input_file
-            , static_cast<std::streamoff>( blocks_per_thread * block_size * i )  
-            , static_cast<std::streamsize>( blocks_per_thread * block_size * ( i + 1 ) )
+            , process_file_slice
+            , std::move( row_data )
             , block_size );
     }
 
