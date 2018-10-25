@@ -53,28 +53,30 @@ int main ( int argc, char *argv[] )
 
     const unsigned int max_threads_num = std::thread::hardware_concurrency();
 
-    std::vector<std::promise<std::vector<size_t> > > promises (max_threads_num);
+    std::vector<std::future<std::vector<size_t> > > promises ( max_threads_num );
 
     for ( size_t i = 0; i < max_threads_num; ++i ) {
-      std::thread(
-            [](std::promise<std::vector<size_t> >& p, const std::string file_name, std::streamoff off, std::streamsize size) {
-              std::ifstream stream ( file_name, std::ios_base::in | std::ios_base::binary );
-              stream.seekg( off );
+      promises[i] = std::async( 
+            std::launch::async
+            , [](const std::string file_name, std::streamoff off, std::streamsize size) {
+                std::ifstream stream ( file_name, std::ios_base::in | std::ios_base::binary );
+                stream.seekg( off );
 
-              std::string row_data ( static_cast<size_t>(size), 0 );
-              stream.read( &row_data[0], size );
-              p.set_value(process_file_slice(row_data, static_cast<size_t>(size)));
-            }
-          , promises[i]
-          , input_file
-          , static_cast<std::streamoff>(ceil(static_cast<double>(file_size) / max_threads_num) * i)
-          , static_cast<std::streamsize>(block_size) ).detach();
+                std::string row_data ( static_cast<size_t>(size), 0 );
+                stream.read( &row_data[0], size );
+                return process_file_slice( row_data, static_cast<size_t>(size) );
+              }
+            , input_file
+            , static_cast<std::streamoff>(ceil(static_cast<double>(file_size) / max_threads_num) * i)
+            , static_cast<std::streamsize>(block_size) );
     }
 
-    std::ofstream output
+    std::ofstream output( output_file, std::ios_base::out );
     for ( size_t i = 0; i < max_threads_num; ++i ) {
-      promises[i].get_future().get();
-
+      auto res = promises[i].get();
+      for ( auto i : res ) {
+        output << i;
+      }
     }
   }
   catch ( po::error &e ) {
