@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.1)
 project(Signature)
 
+set(CMAKE_BUILD_TYPE "Debug")
+
 set(CMAKE_CXX_STANDARD 11)
 set(executable_name signature)
 

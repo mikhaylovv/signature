@@ -50,6 +50,7 @@ int main ( int argc, char * argv[] )
 
     std::ifstream main_fstream ( input_file, std::ios_base::in | std::ios_base::binary | std::ios_base::ate );
     const std::iostream::pos_type file_size = main_fstream.tellg();
+    main_fstream.seekg(0);
 
     std::string row_data ( static_cast<size_t>( file_size ), 0 );
     main_fstream.read( &row_data[0], file_size );
@@ -58,7 +59,7 @@ int main ( int argc, char * argv[] )
     auto res = process_file_slice(row_data, block_size);
 
     // Collect results
-    std::ofstream output( output_file, std::ios_base::out );
+    std::ofstream output( output_file, std::ios_base::out | std::ios_base::trunc);
     for ( auto i : res ) {
       output << i;
     }
