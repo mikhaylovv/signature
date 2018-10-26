@@ -51,32 +51,16 @@ int main ( int argc, char * argv[] )
     std::ifstream main_fstream ( input_file, std::ios_base::in | std::ios_base::binary | std::ios_base::ate );
     const std::iostream::pos_type file_size = main_fstream.tellg();
 
-    const unsigned int max_threads_num = std::thread::hardware_concurrency();
-    const size_t blocks_per_thread = static_cast<size_t>( ceil( ceil( static_cast<double>( file_size ) / block_size ) / max_threads_num ) );
-
-
-    std::vector<std::future<std::vector<size_t> > > promises ( max_threads_num );
+    std::string row_data ( static_cast<size_t>( file_size ), 0 );
+    main_fstream.read( &row_data[0], file_size );
 
     // run hash calculations
-    for ( size_t i = 0; i < max_threads_num; ++i ) {
-      main_fstream.seekg( static_cast<std::streamoff>( blocks_per_thread * block_size * i ) );
-      const size_t read_size = blocks_per_thread * block_size * ( i + 1 );
-      std::string row_data ( read_size , 0 );
-      main_fstream.read( &row_data[0], static_cast<std::streamsize>( read_size ) );
-      promises[i] = std::async( 
-            std::launch::async
-            , process_file_slice
-            , std::move( row_data )
-            , block_size );
-    }
+    auto res = process_file_slice(row_data, block_size);
 
     // Collect results
     std::ofstream output( output_file, std::ios_base::out );
-    for ( size_t i = 0; i < max_threads_num; ++i ) {
-      auto res = promises[i].get();
-      for ( auto i : res ) {
-        output << i;
-      }
+    for ( auto i : res ) {
+      output << i;
     }
   }
   catch ( po::error & e ) {
