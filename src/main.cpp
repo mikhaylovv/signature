@@ -52,16 +52,14 @@ int main ( int argc, char * argv[] )
     const std::iostream::pos_type file_size = main_fstream.tellg();
     main_fstream.seekg(0);
 
-    std::string row_data ( static_cast<size_t>( file_size ), 0 );
-    main_fstream.read( &row_data[0], file_size );
-
-    // run hash calculations
-    auto res = process_file_slice(row_data, block_size);
-
-    // Collect results
+    const size_t blocks_num = static_cast<size_t>( ceil( static_cast<double>( file_size ) / block_size ) );
     std::ofstream output( output_file, std::ios_base::out | std::ios_base::trunc);
-    for ( auto i : res ) {
-      output << i;
+
+    for ( size_t i = 0; i < blocks_num; ++i ) {
+      std::string row_data ( static_cast<size_t>( block_size ), 0 );
+      main_fstream.read( &row_data[0], static_cast<std::streamsize>( block_size ) );
+
+      output << std::hash<std::string>()( row_data );
     }
   }
   catch ( po::error & e ) {
