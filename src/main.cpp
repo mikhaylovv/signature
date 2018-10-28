@@ -2,10 +2,15 @@
 #include <fstream>
 #include <string>
 #include <future>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 #include <cmath>
-#include <boost/asio.hpp>
+#include <deque>
+#include <atomic>
 #include <boost/program_options.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/post.hpp>
 
 #include "worker.h"
 
@@ -48,42 +53,84 @@ int main ( int argc, char * argv[] )
     const std::string input_file = vm["input-file"].as<std::string>();
     const std::string output_file = vm["output-file"].as<std::string>();
 
-    std::ifstream main_fstream ( input_file, std::ios_base::in | std::ios_base::binary | std::ios_base::ate );
-    const std::iostream::pos_type file_size = main_fstream.tellg();
+    std::ifstream stream ( input_file, std::ios_base::in | std::ios_base::binary );
+    std::ofstream output ( output_file, std::ios_base::out );
 
-    const unsigned int max_threads_num = std::thread::hardware_concurrency();
-    const size_t blocks_per_thread = static_cast<size_t>( ceil( ceil( static_cast<double>( file_size ) / block_size ) / max_threads_num ) );
-
-
-    std::vector<std::future<std::vector<size_t> > > promises ( max_threads_num );
-
-    // run hash calculations
-    for ( size_t i = 0; i < max_threads_num; ++i ) {
-      main_fstream.seekg( static_cast<std::streamoff>( blocks_per_thread * block_size * i ) );
-      const size_t read_size = blocks_per_thread * block_size * ( i + 1 );
-      std::string row_data ( read_size , 0 );
-      main_fstream.read( &row_data[0], static_cast<std::streamsize>( read_size ) );
-      promises[i] = std::async( 
-            std::launch::async
-            , process_file_slice
-            , std::move( row_data )
-            , block_size );
+    if ( !stream.is_open() ) {
+      std::cout << "Can't open input-file: " << input_file << std::endl;
+      return 1;
     }
 
-    // Collect results
-    std::ofstream output( output_file, std::ios_base::out );
-    for ( size_t i = 0; i < max_threads_num; ++i ) {
-      auto res = promises[i].get();
-      for ( auto i : res ) {
-        output << i;
+    if ( !output.is_open() ) {
+      std::cout << "Can't open output-file: " << output_file << std::endl;
+      return 1;
+    }
+    
+    std::mutex mutex;
+    std::condition_variable cond;  
+    std::deque<std::future<size_t> > deq;
+    std::atomic<bool> done;
+
+    std::thread writer ( [&mutex, &cond, &deq, &done] ( std::ofstream stream ) {
+          while ( !done.load( std::memory_order_acquire ) ) {
+            std::future<size_t> future;
+            {
+              std::unique_lock<std::mutex> lock ( mutex );
+              if ( deq.empty()) {
+                cond.wait( lock, [&done, &deq] () 
+                  { return !deq.empty() | done.load( std::memory_order_acquire ) == true; } ); 
+                
+                if ( deq.empty() ) {
+                  continue;
+                }
+              }
+
+              future = std::move( deq.front() );
+              deq.pop_front();
+            }
+            try {
+              auto res = future.get();
+              stream << res;
+            }
+            catch ( std::future_error & e ) {
+              std::cout << "Hash generate or  error: " << e.what();
+            }
+            catch ( std::exception & e ) {
+              std::cout << "Exception cached, programm terminated: " << e.what() << std::endl;
+            }
+          }
+        }, std::move( output ) );
+
+    boost::asio::thread_pool pool;
+    std::string str_buff ( block_size, 0 );
+    while ( !stream.eof() )
+    {
+      stream.read( &str_buff[0], block_size );
+
+      std::packaged_task<size_t()> task ( [str_buff] () {
+            return std::hash<std::string>()(str_buff);
+          } );
+
+      {
+        auto future = task.get_future();
+        std::lock_guard<std::mutex> lock ( mutex );
+        deq.emplace_back( std::move( future ) );
       }
+      
+      boost::asio::post( pool, std::move( task  ) );
+      cond.notify_one();
     }
+    
+    done.store( true, std::memory_order_release );
+    cond.notify_one();
+    writer.join();
+    // Collect results
   }
   catch ( po::error & e ) {
     std::cout << "Command line parse error: " << e.what();
   }
-  catch ( std::future_error & e ) {
-    std::cout << "Hash generate or  error: " << e.what();
+  catch ( std::exception & e ) {
+    std::cout << "Exception cached, programm terminated: " << e.what() << std::endl;
   }
 
   return 0;
