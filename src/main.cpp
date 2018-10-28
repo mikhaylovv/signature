@@ -8,6 +8,7 @@
 #include <cmath>
 #include <deque>
 #include <atomic>
+#include <exception>
 #include <boost/program_options.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/asio/post.hpp>
@@ -45,8 +46,7 @@ int main ( int argc, char * argv[] )
     }
 
     if ( !vm.count( "input-file" ) ) {
-      std::cout << "Input file empty. Usage: signature [options] input_file \n";
-      return 1;
+      throw std::runtime_error ( "Input file empty. Usage: signature [options] input_file \n" );
     }
 
     const size_t block_size = vm["block-size"].as<size_t>();
@@ -57,13 +57,11 @@ int main ( int argc, char * argv[] )
     std::ofstream output ( output_file, std::ios_base::out );
 
     if ( !stream.is_open() ) {
-      std::cout << "Can't open input-file: " << input_file << std::endl;
-      return 1;
+      throw std::runtime_error ( "Can't open input-file: " );
     }
 
     if ( !output.is_open() ) {
-      std::cout << "Can't open output-file: " << output_file << std::endl;
-      return 1;
+      throw std::runtime_error ( "Can't open output-file: " ); 
     }
     
     std::mutex mutex;
@@ -78,7 +76,7 @@ int main ( int argc, char * argv[] )
               std::unique_lock<std::mutex> lock ( mutex );
               if ( deq.empty()) {
                 cond.wait( lock, [&done, &deq] () 
-                  { return !deq.empty() | done.load( std::memory_order_acquire ) == true; } ); 
+                  { return !deq.empty() | done.load( std::memory_order_acquire ); } ); 
                 
                 if ( deq.empty() ) {
                   continue;
@@ -93,10 +91,12 @@ int main ( int argc, char * argv[] )
               stream << res;
             }
             catch ( std::future_error & e ) {
-              std::cout << "Hash generate or  error: " << e.what();
+              std::cout << "Hash generation  error: " << e.what();
+              abort();
             }
             catch ( std::exception & e ) {
               std::cout << "Exception cached, programm terminated: " << e.what() << std::endl;
+              abort();
             }
           }
         }, std::move( output ) );
@@ -105,7 +105,7 @@ int main ( int argc, char * argv[] )
     std::string str_buff ( block_size, 0 );
     while ( !stream.eof() )
     {
-      stream.read( &str_buff[0], block_size );
+      stream.read( &str_buff[0], static_cast<std::streamsize>( block_size ) );
 
       std::packaged_task<size_t()> task ( [str_buff] () {
             return std::hash<std::string>()(str_buff);
@@ -124,13 +124,14 @@ int main ( int argc, char * argv[] )
     done.store( true, std::memory_order_release );
     cond.notify_one();
     writer.join();
-    // Collect results
   }
   catch ( po::error & e ) {
     std::cout << "Command line parse error: " << e.what();
+    return 1;
   }
   catch ( std::exception & e ) {
     std::cout << "Exception cached, programm terminated: " << e.what() << std::endl;
+    return 1;
   }
 
   return 0;
