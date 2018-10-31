@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.1)
 project(Signature)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(executable_name signature)
 
 find_package(Boost 1.66.0 COMPONENTS 
@@ -13,3 +13,5 @@ find_package(Threads)
 
 add_subdirectory(src)
 add_subdirectory(tests)
+
+enable_testing()

@@ -19,4 +19,4 @@ target_link_libraries(${test_name}
     ${Boost_LIBRARIES} 
 )
 
-add_test(${test_name} ${test_name})
+add_test(${test_name} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${test_name})

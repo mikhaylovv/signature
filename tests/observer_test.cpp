@@ -1,6 +1,7 @@
-#define BOOST_TEST_MODULE observer_test
+
 #include <boost/test/included/unit_test.hpp>
 #include <boost/mpl/assert.hpp>
+#include <memory>
 
 #include "isubject.h"
 #include "iobserver.h"
@@ -22,16 +23,17 @@ BOOST_AUTO_TEST_SUITE( observer )
 
 BOOST_AUTO_TEST_CASE( observer_test )
 {
-  Observer<int> obs ( 0 );
-  Observer<int> obs2 ( 0 );
+  std::shared_ptr<Observer<int> > obs_sp (new Observer<int> ( 0 ));
+  std::shared_ptr<Observer<int> > obs2_sp (new Observer<int> ( 12 ));
 
   Subject<int> subj;
-  subj.subscribe( obs );
-  subj.subscribe( obs2 );
+  subj.subscribe( obs_sp );
+  subj.subscribe( obs2_sp );
 
-  subj.notify( 10 )
+  subj.notify( 10 );
 
-  BOOST_CHECK_THROW( expr, std::logic_error );
+  BOOST_CHECK( obs_sp->last_val == 10 );
+  BOOST_CHECK( obs2_sp->last_val == 10 );
 }
 
 

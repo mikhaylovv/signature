@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE worker_test 
+#define BOOST_TEST_MODULE worker_test
 #include <boost/test/included/unit_test.hpp>
 #include <boost/mpl/assert.hpp>
 

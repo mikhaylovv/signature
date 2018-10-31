@@ -107,9 +107,9 @@ int main ( int argc, char * argv[] )
     {
       stream.read( &str_buff[0], static_cast<std::streamsize>( block_size ) );
 
-      std::packaged_task<size_t()> task ( [str_buff] () {
-            return std::hash<std::string>()(str_buff);
-          } );
+      std::packaged_task<size_t()> task ( std::bind( [] (std::string str) {
+            return std::hash<std::string>()(str);
+          }, str_buff ) );
 
       {
         auto future = task.get_future();
