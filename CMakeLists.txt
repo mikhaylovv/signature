@@ -11,7 +11,8 @@ find_package(Boost 1.66.0 COMPONENTS
 
 find_package(Threads)
 
+enable_testing()
+
 add_subdirectory(src)
 add_subdirectory(tests)
 
-enable_testing()

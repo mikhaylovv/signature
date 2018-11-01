@@ -1,7 +1,7 @@
 #ifndef ISUBJECT_H
 #define ISUBJECT_H
 
-#include <vector>
+#include <list>
 #include <memory>
 #include <cassert>
 #include <algorithm>
@@ -16,7 +16,7 @@ public:
   void notify( T value );
 
 private:
-  std::vector<std::weak_ptr<IObserver<T> > > observers;
+  std::list<std::weak_ptr<IObserver<T> > > observers;
 };
 
 template<class T>
@@ -33,17 +33,26 @@ void Subject<T>::unsubscribe( std::shared_ptr<IObserver<T> > obs )
         , [&obs] ( auto ptr ) {
             return ptr.lock() == obs;
           } );
-
-  observers.erase( ptr );
+  if ( ptr != observers.end()) {
+    observers.erase( ptr );
+  }
 }
 
 template<class T>
 void Subject<T>::notify(T value)
 {
-  for ( auto obs : observers ) {
-    auto spt = obs.lock();
+  auto cit = observers.cbegin();
+  while ( cit != observers.end() ) {
+    auto spt = cit->lock();
+
     if ( spt ) {
       spt->notify( value );
+      ++cit;
+    }
+    else {
+      auto old_it = cit;
+      ++cit;
+      observers.erase( old_it );
     }
   }
 }

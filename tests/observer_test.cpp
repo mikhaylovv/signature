@@ -1,9 +1,11 @@
-
-#include <boost/test/included/unit_test.hpp>
+#define BOOST_TEST_LOG_LEVEL test_suite
+#define BOOST_TEST_MODULE test_main
+#include <boost/test/unit_test.hpp>
 #include <boost/mpl/assert.hpp>
+
 #include <memory>
 
-#include "isubject.h"
+#include "subject.h"
 #include "iobserver.h"
 
 template <class T>
@@ -19,21 +21,41 @@ public:
   T last_val;
 };
 
-BOOST_AUTO_TEST_SUITE( observer )
-
-BOOST_AUTO_TEST_CASE( observer_test )
+struct ObserverFixture
 {
-  std::shared_ptr<Observer<int> > obs_sp (new Observer<int> ( 0 ));
-  std::shared_ptr<Observer<int> > obs2_sp (new Observer<int> ( 12 ));
+  std::shared_ptr<Observer<int> > obs_sp = std::make_shared<Observer<int> > ( 0 );
+  std::shared_ptr<Observer<int> > obs2_sp = std::make_shared<Observer<int> > ( 12 );
 
   Subject<int> subj;
-  subj.subscribe( obs_sp );
-  subj.subscribe( obs2_sp );
 
-  subj.notify( 10 );
+  ObserverFixture() {
+    subj.subscribe( obs_sp );
+    subj.subscribe( obs2_sp );
+  }
+};
 
-  BOOST_CHECK( obs_sp->last_val == 10 );
-  BOOST_CHECK( obs2_sp->last_val == 10 );
+BOOST_AUTO_TEST_SUITE( observer )
+
+BOOST_AUTO_TEST_CASE( subject_sunscribe )
+{
+  ObserverFixture fixt;
+  fixt.subj.notify( 10 );
+
+  BOOST_CHECK( fixt.obs_sp->last_val == 10 );
+  BOOST_CHECK( fixt.obs2_sp->last_val == 10 );
+}
+
+BOOST_AUTO_TEST_CASE( subject_unsubscribe )
+{
+  ObserverFixture fixt;
+
+  fixt.subj.unsubscribe( fixt.obs2_sp );
+  fixt.subj.unsubscribe( fixt.obs2_sp );
+  fixt.subj.notify( 10 );
+  fixt.subj.unsubscribe( fixt.obs_sp );
+
+  BOOST_CHECK( fixt.obs_sp->last_val == 10 );
+  BOOST_CHECK( fixt.obs2_sp->last_val == 12 );
 }
 
 
