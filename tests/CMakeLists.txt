@@ -20,6 +20,7 @@ set_target_properties(${test_name} PROPERTIES
 
 target_link_libraries(${test_name} 
     ${Boost_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
 add_test(NAME ${test_name} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${test_name})
