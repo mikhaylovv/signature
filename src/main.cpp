@@ -74,7 +74,7 @@ int main ( int argc, char * argv[] )
               std::unique_lock<std::mutex> lock ( mutex );
               if ( deq.empty()) {
                 cond.wait( lock, [&done, &deq] () 
-                  { return !deq.empty() | done.load( std::memory_order_acquire ); } ); 
+                  { return !deq.empty() || done.load( std::memory_order_acquire ); } ); 
                 
                 if ( deq.empty() ) {
                   continue;
