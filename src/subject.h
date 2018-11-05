@@ -3,12 +3,13 @@
 
 #include <list>
 #include <memory>
-#include <cassert>
 #include <algorithm>
+
 #include "iobserver.h"
 
 template <class T>
-class Subject {
+class Subject : public std::enable_shared_from_this<Subject<T> > 
+{
 public:
   void subscribe( std::shared_ptr<IObserver<T> > obs );
   void unsubscribe( std::shared_ptr<IObserver<T> > obs );

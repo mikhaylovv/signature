@@ -4,7 +4,7 @@
 #include <future>
 #include <system_error>
 
-#include "taskdeque.h"
+#include "task_deque.h"
 
 BOOST_AUTO_TEST_SUITE( task_deque )
 

@@ -101,8 +101,7 @@ int main ( int argc, char * argv[] )
 
     boost::asio::thread_pool pool;
     std::string str_buff ( block_size, 0 );
-    while ( !stream.eof() )
-    {
+    while ( !stream.eof() ) {
       stream.read( &str_buff[0], static_cast<std::streamsize>( block_size ) );
 
       std::packaged_task<size_t()> task ( std::bind( [] (std::string str) {
