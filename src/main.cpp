@@ -16,22 +16,25 @@ namespace po = boost::program_options;
 
 int main ( int argc, char * argv[] )
 {
-  po::options_description desc (
-        "Usage: signature [options] input_file"
-        "\nThis program generates a file signature. "
-        "The signature is generated as follows: the source file "
-        "is divided into blocks of equal length. For each block, the value of "
-        "the hash function is calculated and added to the output signature file." );
-  desc.add_options()
-      ( "help", "Produce help message" )
-      ( "block-size", po::value<size_t>()->default_value( 1024 ), "block size in bytes" )
-      ( "input-file", po::value<std::string>(), "input file" )
-      ( "output-file", po::value<std::string>()->default_value( "out" ), "output file")
-  ;
-  po::positional_options_description p;
-  p.add( "input-file", -1 );
-
   try {
+    po::options_description desc (
+          "Usage: signature [options] input_file"
+          "\nThis program generates a file signature. "
+          "The signature is generated as follows: the source file "
+          "is divided into blocks of equal length. For each block, the value of "
+          "the hash function is calculated and added to the output signature file." );
+    desc.add_options()
+        ( "help", "Produce help message" )
+        ( "block-size", po::value<size_t>()->default_value( 1024 ), "block size in bytes" )
+        ( "input-file", po::value<std::string>(), "input file" )
+        ( "output-file", po::value<std::string>()->default_value( "out" ), "output file")
+    ;
+    
+    po::positional_options_description p;
+    p.add( "input-file", 1 )
+     .add( "output-file", 1 )
+    ;
+
     po::variables_map vm;
     po::store( po::command_line_parser( argc, argv )
               .options( desc ).positional( p ).run(), vm );
