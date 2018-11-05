@@ -1,17 +1,16 @@
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <future>
-#include <condition_variable>
-#include <mutex>
 #include <thread>
 #include <cmath>
-#include <deque>
-#include <atomic>
 #include <exception>
+#include <functional>
 #include <boost/program_options.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/asio/post.hpp>
+
+#include "stream_reader.h"
+#include "task_deque.h"
+#include "task_launcher.h"
 
 namespace po = boost::program_options;
 
@@ -51,75 +50,40 @@ int main ( int argc, char * argv[] )
     const std::string input_file = vm["input-file"].as<std::string>();
     const std::string output_file = vm["output-file"].as<std::string>();
 
-    std::ifstream stream ( input_file, std::ios_base::in | std::ios_base::binary );
+    auto istream = std::make_shared<std::ifstream>( 
+        input_file, std::ios_base::in | std::ios_base::binary );
+
     std::ofstream output ( output_file, std::ios_base::out );
 
-    if ( !stream.is_open() ) {
-      throw std::runtime_error ( "Can't open input-file: " );
+    if ( !istream->is_open() ) {
+      throw std::runtime_error ( "Can't open input-file: " + input_file );
     }
 
     if ( !output.is_open() ) {
-      throw std::runtime_error ( "Can't open output-file: " ); 
+      throw std::runtime_error ( "Can't open output-file: " + output_file ); 
     }
+
+    StreamReader reader ( istream, block_size );
+    auto task_deq = std::make_shared<TaskDeque<size_t> >();
+    auto launcher = std::make_shared<TaskLauncher<std::string, size_t> > ( 
+        task_deq, std::hash<std::string>() );
+
+    reader.subscribe( launcher );
     
-    std::mutex mutex;
-    std::condition_variable cond;  
-    std::deque<std::future<size_t> > deq;
-    std::atomic<bool> done;
-
-    std::thread writer ( [&mutex, &cond, &deq, &done] ( std::ofstream stream ) {
-          while ( !done.load( std::memory_order_acquire ) ) {
-            std::future<size_t> future;
-            {
-              std::unique_lock<std::mutex> lock ( mutex );
-              if ( deq.empty()) {
-                cond.wait( lock, [&done, &deq] () 
-                  { return !deq.empty() || done.load( std::memory_order_acquire ); } ); 
-                
-                if ( deq.empty() ) {
-                  continue;
-                }
-              }
-
-              future = std::move( deq.front() );
-              deq.pop_front();
-            }
+    std::thread writer ( [] ( std::ofstream stream, std::shared_ptr<TaskDeque<size_t> > deq ) {
+          while ( auto future = deq->wait_and_take_first() ) {
             try {
-              auto res = future.get();
-              stream << res;
-            }
-            catch ( std::future_error & e ) {
-              std::cout << "Hash generation  error: " << e.what();
-              abort();
+              stream << future->get();
             }
             catch ( std::exception & e ) {
               std::cout << "Exception cached, programm terminated: " << e.what() << std::endl;
               abort();
             }
           }
-        }, std::move( output ) );
+        }, std::move( output ), task_deq );
 
-    boost::asio::thread_pool pool;
-    std::string str_buff ( block_size, 0 );
-    while ( !stream.eof() ) {
-      stream.read( &str_buff[0], static_cast<std::streamsize>( block_size ) );
-
-      std::packaged_task<size_t()> task ( std::bind( [] (std::string str) {
-            return std::hash<std::string>()(str);
-          }, str_buff ) );
-
-      {
-        auto future = task.get_future();
-        std::lock_guard<std::mutex> lock ( mutex );
-        deq.emplace_back( std::move( future ) );
-      }
-      
-      boost::asio::post( pool, std::move( task  ) );
-      cond.notify_one();
-    }
-    
-    done.store( true, std::memory_order_release );
-    cond.notify_one();
+    reader.process_stream();
+    task_deq->set_done( true );
     writer.join();
   }
   catch ( po::error & e ) {

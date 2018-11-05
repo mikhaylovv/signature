@@ -1,3 +1,5 @@
+#ifndef OBSERVER_MOCK_H
+#define OBSERVER_MOCK_H
 
 #include "iobserver.h"
 
@@ -13,3 +15,5 @@ public:
 
   T last_val;
 };
+
+#endif
