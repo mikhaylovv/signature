@@ -9,12 +9,14 @@
 #include "task_deque.h"
 #include "iobserver.h"
 
+/// Starts the passed function with the data transmitted through the IObserver::notify(T)
 template <class T, class U>
 class TaskLauncher : public IObserver<T>
 {
 public:
   TaskLauncher( std::shared_ptr<TaskDeque<U> > task_deq, std::function<U(T)> func
-      , size_t pool_threads_num = std::thread::hardware_concurrency() );
+      , size_t pool_threads_num = std::thread::hardware_concurrency() > 2 
+      ? std::thread::hardware_concurrency() - 1 : 1);
   
   virtual void notify( T obj ) override;
 
@@ -40,7 +42,7 @@ void TaskLauncher<T, U>::notify( T obj )
   auto sh_future = task.get_future().share();
   _task_deq->push_back( sh_future );
       
-  boost::asio::post( _pool, std::move( task  ) );
+  boost::asio::post( _pool, std::move( task ) );
 }
 
 #endif

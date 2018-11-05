@@ -7,6 +7,8 @@
 
 #include "iobserver.h"
 
+
+/// Provides the ability to sign observers, and notify them using notify(T)
 template <class T>
 class Subject : public std::enable_shared_from_this<Subject<T> > 
 {

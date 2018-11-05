@@ -69,7 +69,9 @@ int main ( int argc, char * argv[] )
     StreamReader reader ( istream, block_size );
     auto task_deq = std::make_shared<TaskDeque<size_t> >();
     auto launcher = std::make_shared<TaskLauncher<std::string, size_t> > ( 
-        task_deq, std::hash<std::string>() );
+        task_deq, std::hash<std::string>()
+        , std::thread::hardware_concurrency() > 3 
+          ? std::thread::hardware_concurrency() - 1 : 1 );
 
     reader.subscribe( launcher );
     
